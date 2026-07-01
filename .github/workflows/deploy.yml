@@ -29,6 +29,11 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: npm ci
 
+      # Buildx with the docker-container driver is required for GHA cache export
+      # (the default docker driver can't export cache).
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
       # Build context is the repo root; the Dockerfile lives under the service.
       - name: Build Docker image
         uses: docker/build-push-action@v6
