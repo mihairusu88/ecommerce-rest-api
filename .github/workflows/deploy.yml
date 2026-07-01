@@ -1,0 +1,59 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [master]
+  # Allow manual runs from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  # ---- CI: install deps and build the Docker image for every service ----
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api-gateway, auth-service, product-service, order-service]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/${{ matrix.service }}/package-lock.json
+
+      # Validates the lockfile installs cleanly (no test runner configured yet).
+      - name: Install dependencies
+        working-directory: services/${{ matrix.service }}
+        run: npm ci
+
+      # Build context is the repo root; the Dockerfile lives under the service.
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: false
+          tags: ${{ matrix.service }}:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---- CD: trigger Render deploys once every image builds ----
+  deploy:
+    name: Deploy to Render
+    needs: build
+    runs-on: ubuntu-latest
+    # Only deploy from master (not manual dispatches on other refs).
+    if: github.ref == 'refs/heads/master'
+    steps:
+      # Deploy downstream services first, then the gateway.
+      - name: Deploy auth-service
+        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_AUTH }}"
+      - name: Deploy product-service
+        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PRODUCT }}"
+      - name: Deploy order-service
+        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_ORDER }}"
+      - name: Deploy api-gateway
+        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_GATEWAY }}"

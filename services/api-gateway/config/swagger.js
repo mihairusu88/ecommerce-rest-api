@@ -2,8 +2,15 @@ import swaggerJSDoc from "swagger-jsdoc";
 import packageJson from "../package.json" with { type: "json" };
 import rootPackageJson from "../../../package.json" with { type: "json" };
 import { schemas, responses } from "./schemas.js";
+import { normalizeBaseUrl } from "./url.js";
 
 const PORT = process.env.PORT || 3000;
+
+// Public origin the gateway is reached at. On Render this is injected as
+// RENDER_EXTERNAL_URL; locally it falls back to localhost. Used for the Swagger
+// `servers` entry and for rewriting downstream OAuth token URLs so the docs UI
+// stays same-origin when deployed.
+const PUBLIC_URL = process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
 const options = {
   definition: {
@@ -13,7 +20,7 @@ const options = {
       version: packageJson.version,
       description: "Entry point / gateway for the ecommerce platform.",
     },
-    servers: [{ url: `http://localhost:${PORT}`, description: "Local" }],
+    servers: [{ url: PUBLIC_URL, description: "Gateway" }],
     components: { schemas, responses },
   },
   // Scan source files for @openapi JSDoc annotations
@@ -22,9 +29,9 @@ const options = {
 
 export const swaggerSpec = swaggerJSDoc(options);
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:3001";
-const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || "http://localhost:3002";
-const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || "http://localhost:3003";
+const AUTH_SERVICE_URL = normalizeBaseUrl(process.env.AUTH_SERVICE_URL || "http://localhost:3001");
+const PRODUCT_SERVICE_URL = normalizeBaseUrl(process.env.PRODUCT_SERVICE_URL || "http://localhost:3002");
+const ORDER_SERVICE_URL = normalizeBaseUrl(process.env.ORDER_SERVICE_URL || "http://localhost:3003");
 
 const DOWNSTREAM = [
   {
@@ -83,7 +90,7 @@ function rewriteSchemeUrls(def, { url, pathPrefix }) {
   if (def.type !== "oauth2" || !def.flows || !url) return def;
   const clone = structuredClone(def);
   const base = `${url}/api`;
-  const gatewayBase = `http://localhost:${PORT}${pathPrefix}`;
+  const gatewayBase = `${PUBLIC_URL}${pathPrefix}`;
   for (const flow of Object.values(clone.flows)) {
     for (const key of ["tokenUrl", "authorizationUrl", "refreshUrl"]) {
       if (typeof flow[key] === "string" && flow[key].startsWith(base)) {
@@ -163,7 +170,7 @@ export async function getMergedSpec() {
       description:
         "Unified API documentation for all ecommerce microservices, aggregated by the API Gateway.",
     },
-    servers: [{ url: `http://localhost:${PORT}`, description: "Local" }],
+    servers: [{ url: PUBLIC_URL, description: "Gateway" }],
     tags: [],
     paths: {},
     components: { schemas: {}, responses: {}, securitySchemes: {} },

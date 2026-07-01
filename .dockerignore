@@ -1,0 +1,19 @@
+# Dependencies are reinstalled with `npm ci` inside the image.
+**/node_modules
+
+# Secrets & local env — never bake into an image.
+**/.env
+**/.env.*
+!**/.env.example
+
+# VCS, CI, docs, tooling
+.git
+.github
+**/*.log
+**/.DS_Store
+Dockerfile
+**/Dockerfile
+.dockerignore
+docker-compose.yml
+render.yaml
+*.md

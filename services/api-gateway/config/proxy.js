@@ -1,8 +1,9 @@
 import { createProxyMiddleware } from "http-proxy-middleware";
+import { normalizeBaseUrl } from "./url.js";
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:3001";
-const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || "http://localhost:3002";
-const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || "http://localhost:3003";
+const AUTH_SERVICE_URL = normalizeBaseUrl(process.env.AUTH_SERVICE_URL || "http://localhost:3001");
+const PRODUCT_SERVICE_URL = normalizeBaseUrl(process.env.PRODUCT_SERVICE_URL || "http://localhost:3002");
+const ORDER_SERVICE_URL = normalizeBaseUrl(process.env.ORDER_SERVICE_URL || "http://localhost:3003");
 
 // Gateway path prefixes here mirror the prefixes used when merging each
 // service's spec in config/swagger.js. Every service mounts its routes under
