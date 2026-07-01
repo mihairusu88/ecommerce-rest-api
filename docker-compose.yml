@@ -13,7 +13,8 @@ services:
       PORT: 3001
       JWT_SECRET: dev-secret-change-me
       JWT_EXPIRES_IN: 1h
-      # MONGODB_URI: mongodb://mongo:27017/auth   # wire up when persistence lands
+      JWT_REFRESH_SECRET: dev-refresh-secret-change-me
+      JWT_REFRESH_EXPIRES_IN: 7d
     ports:
       - "3001:3001"
     healthcheck:
@@ -21,9 +22,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    depends_on:
-      mongo:
-        condition: service_started
 
   product-service:
     build:
@@ -31,7 +29,6 @@ services:
       dockerfile: services/product-service/Dockerfile
     environment:
       PORT: 3002
-      # MONGODB_URI: mongodb://mongo:27017/products
     ports:
       - "3002:3002"
     healthcheck:
@@ -39,9 +36,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    depends_on:
-      mongo:
-        condition: service_started
 
   order-service:
     build:
@@ -49,7 +43,6 @@ services:
       dockerfile: services/order-service/Dockerfile
     environment:
       PORT: 3003
-      # MONGODB_URI: mongodb://mongo:27017/orders
     ports:
       - "3003:3003"
     healthcheck:
@@ -57,9 +50,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    depends_on:
-      mongo:
-        condition: service_started
 
   api-gateway:
     build:
@@ -80,15 +70,3 @@ services:
         condition: service_healthy
       order-service:
         condition: service_healthy
-
-  # Anticipates the MongoDB persistence noted in CLAUDE.md. Services don't
-  # connect yet, so this is harmless until they do.
-  mongo:
-    image: mongo:7
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-
-volumes:
-  mongo-data:

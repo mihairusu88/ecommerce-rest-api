@@ -8,9 +8,11 @@
 # (.github/workflows/deploy.yml) via each service's Deploy Hook, so CI must pass
 # before anything ships. See DEPLOYMENT.md.
 #
-# The gateway reaches its downstreams over Render's private network. `fromService
-# property: hostport` yields `host:port` (no scheme); the gateway prepends
-# http:// automatically (config/url.js). PORT is injected by Render — not set here.
+# The gateway reaches its downstreams over their PUBLIC onrender.com URLs, set
+# manually after first deploy (AUTH/PRODUCT/ORDER_SERVICE_URL are sync: false).
+# Free web services can't RECEIVE private network traffic, so private addresses
+# (fromService property: hostport) are unreachable here — see DEPLOYMENT.md.
+# PORT is injected by Render — not set here.
 services:
   - type: web
     name: auth-service
@@ -67,18 +69,22 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # These are the downstreams' PUBLIC onrender.com URLs.
+      #
+      # We can NOT use `fromService property: hostport` here: that yields the
+      # private-network address, and Render FREE web services cannot RECEIVE
+      # private network traffic — the gateway gets `getaddrinfo ENOTFOUND` for
+      # those hosts. Public URLs work over the internet and also wake a spun-down
+      # free service.
+      #
+      # CAVEAT: these subdomains are fixed to the CURRENT service instances. If a
+      # downstream is deleted & recreated it gets a new `-suffix`, so update the
+      # matching URL here (or in the dashboard). Upgrade the downstreams to a paid
+      # plan to switch back to `fromService … property: hostport` (private,
+      # no spin-down, survives recreation).
       - key: AUTH_SERVICE_URL
-        fromService:
-          name: auth-service
-          type: web
-          property: hostport
+        value: https://auth-service-gv8i.onrender.com
       - key: PRODUCT_SERVICE_URL
-        fromService:
-          name: product-service
-          type: web
-          property: hostport
+        value: https://product-service-wupe.onrender.com
       - key: ORDER_SERVICE_URL
-        fromService:
-          name: order-service
-          type: web
-          property: hostport
+        value: https://order-service-vvxp.onrender.com

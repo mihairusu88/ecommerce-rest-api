@@ -1,4 +1,4 @@
-import { verifyToken } from "../config/jwt.js";
+import { verifyToken } from "../utils/jwt.js";
 
 /**
  * Require a valid `Authorization: Bearer <token>` header. On success the decoded

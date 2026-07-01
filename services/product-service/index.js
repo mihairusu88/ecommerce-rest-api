@@ -12,10 +12,8 @@ const SERVICE_NAME = packageJson.name || "product-service";
 app.disable("x-powered-by");
 app.use(express.json());
 
-// API routes (mounted under /api)
 app.use("/api", routes);
 
-// Swagger UI (browser) + raw spec
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get("/api-docs.json", (req, res) => res.json(swaggerSpec));
 

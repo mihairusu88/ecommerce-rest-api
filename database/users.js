@@ -1,0 +1,148 @@
+/**
+ * File-based mock user store — the in-memory "database" for the auth service.
+ *
+ * This replaces the earlier MongoDB-backed plan: users are plain objects held
+ * in memory, loaded once at import time. The auth service reads them through
+ * `services/auth-service/utils/users.js`, which layers lookup + password
+ * helpers on top of this raw collection.
+ *
+ * `password` holds a bcrypt hash (never plaintext), exactly as it would be
+ * stored in a real database. Every user shares the same demo plaintext
+ * password: `test12345` (e.g. log in as `guest` / `test12345`).
+ *
+ * `id`, `username` and `email` are unique.
+ */
+const users = [
+  {
+    id: 1,
+    username: "emilys",
+    email: "emily.johnson@example.com",
+    firstName: "Emily",
+    lastName: "Johnson",
+    gender: "female",
+    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "user",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+  {
+    id: 2,
+    username: "michaelw",
+    email: "michael.williams@example.com",
+    firstName: "Michael",
+    lastName: "Williams",
+    gender: "male",
+    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "user",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+  {
+    id: 3,
+    username: "sophiab",
+    email: "sophia.brown@example.com",
+    firstName: "Sophia",
+    lastName: "Brown",
+    gender: "female",
+    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "user",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+  {
+    id: 4,
+    username: "jamesd",
+    email: "james.davis@example.com",
+    firstName: "James",
+    lastName: "Davis",
+    gender: "male",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "user",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+  {
+    id: 5,
+    username: "avat",
+    email: "ava.taylor@example.com",
+    firstName: "Ava",
+    lastName: "Taylor",
+    gender: "female",
+    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "user",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+  {
+    id: 6,
+    username: "oliviaw",
+    email: "olivia.wilson@example.com",
+    firstName: "Olivia",
+    lastName: "Wilson",
+    gender: "female",
+    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "user",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+  {
+    id: 7,
+    username: "liamg",
+    email: "liam.garcia@example.com",
+    firstName: "Liam",
+    lastName: "Garcia",
+    gender: "male",
+    image: "https://images.unsplash.com/photo-1552058544-f2b08422138a?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "user",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+  {
+    id: 8,
+    username: "noahb",
+    email: "noah.brown@example.com",
+    firstName: "Noah",
+    lastName: "Brown",
+    gender: "male",
+    image: "https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "user",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+  {
+    id: 9,
+    username: "adminuser",
+    email: "admin.user@example.com",
+    firstName: "Admin",
+    lastName: "User",
+    gender: "female",
+    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "admin",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+  {
+    id: 10,
+    username: "guest",
+    email: "guest@example.com",
+    firstName: "Guest",
+    lastName: "User",
+    gender: "other",
+    image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=128&h=128&q=80",
+    password: "$2b$10$fOj7N4yQDlAim4nmYkJBpux5L52If40M.gOlye5zTMu.7Ssvy85JS",
+    role: "user",
+    createdAt: "2024-05-23T08:56:21.618Z",
+    updatedAt: "2024-05-23T08:56:21.618Z",
+  },
+];
+
+export default users;

@@ -1,14 +1,6 @@
 /**
- * Reusable OpenAPI component schemas & responses for this service.
- *
- * Schemas are referenced from route JSDoc via `$ref`, e.g.
- *   schema:
- *     $ref: '#/components/schemas/HealthResponse'
- *
- * Responses are referenced the same way, e.g.
- *   responses:
- *     404:
- *       $ref: '#/components/responses/NotFound'
+ * Reusable OpenAPI component schemas & responses, referenced from route JSDoc
+ * via `$ref` (e.g. `$ref: '#/components/schemas/HealthResponse'`).
  */
 
 export const schemas = {
@@ -24,6 +16,50 @@ export const schemas = {
         description: "Process uptime in seconds",
         example: 12.34,
       },
+    },
+  },
+  OrderProduct: {
+    type: "object",
+    required: ["id", "title", "price", "quantity", "total"],
+    properties: {
+      id: { type: "integer", example: 16 },
+      title: { type: "string", example: "Anker Power Bank 20000mAh" },
+      price: { type: "number", format: "float", example: 45.99 },
+      quantity: { type: "integer", example: 4 },
+      total: { type: "number", format: "float", example: 183.96 },
+      discountPercentage: { type: "number", format: "float", example: 20 },
+      discountedTotal: { type: "number", format: "float", example: 147.17 },
+      thumbnail: { type: "string", format: "uri", example: "https://images.unsplash.com/photo-1542838132-92c53300491e" },
+    },
+  },
+  Order: {
+    type: "object",
+    required: ["id", "userId", "products", "total"],
+    properties: {
+      id: { type: "integer", example: 1 },
+      userId: { type: "integer", example: 1 },
+      products: { type: "array", items: { $ref: "#/components/schemas/OrderProduct" } },
+      total: { type: "number", format: "float", example: 363.91 },
+      discountedTotal: { type: "number", format: "float", example: 308.22 },
+      totalProducts: { type: "integer", example: 3 },
+      totalQuantity: { type: "integer", example: 9 },
+      status: {
+        type: "string",
+        enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+        example: "shipped",
+      },
+      createdAt: { type: "string", format: "date-time", example: "2024-06-01T09:00:00.000Z" },
+      updatedAt: { type: "string", format: "date-time", example: "2024-06-01T09:00:00.000Z" },
+    },
+  },
+  OrderListResponse: {
+    type: "object",
+    required: ["orders", "total", "skip", "limit"],
+    properties: {
+      orders: { type: "array", items: { $ref: "#/components/schemas/Order" } },
+      total: { type: "integer", example: 25 },
+      skip: { type: "integer", example: 0 },
+      limit: { type: "integer", example: 30 },
     },
   },
   ErrorResponse: {

@@ -18,6 +18,102 @@ Through the gateway those become `GET /api/auth/health`, `GET /api/products/heal
 
 > Architecture deep-dive: [CLAUDE.md](CLAUDE.md) · Deploy details: [DEPLOYMENT.md](DEPLOYMENT.md)
 
+![Aggregated Swagger UI served by the API gateway at /api-docs](docs/screenshot_swagger_ui.png)
+
+> **Try it live** — the full stack is deployed on Render:
+> [open the aggregated Swagger UI](https://api-gateway-22ik.onrender.com/api-docs)
+> and hit **Authorize** with the demo credentials `guest` / `test12345`.
+
+## Endpoints
+
+Everything is reachable through the gateway on port `3000` under the `/api`
+prefix. Responses are JSON; list endpoints return a paginated envelope — the
+items array plus `total`, `skip` and `limit` (dummyjson-style).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/login` | Log in; returns the user profile + access & refresh tokens |
+| `GET`  | `/api/auth/me` | Current user (requires `Authorization: Bearer <token>`) |
+| `POST` | `/api/auth/refresh` | Rotate the refresh token for a fresh token pair |
+| `GET`  | `/api/products` | List products — `limit`, `skip`, `category`, `sortBy`, `order` |
+| `GET`  | `/api/products/search` | Full-text search — `query` (or `q`), plus sort & pagination |
+| `GET`  | `/api/products/categories` | List product categories |
+| `GET`  | `/api/products/{id}` | Single product by id |
+| `GET`  | `/api/orders` | List orders — `limit`, `skip`, `userId`, `status` |
+| `GET`  | `/api/orders/{id}` | Single order by id |
+| `GET`  | `/api/{service}/health` | Health check for any service |
+
+The mock dataset is **50 products** across 7 categories (beauty, electronics,
+fashion, fragrances, groceries, home, sports), **25 orders**, and **10 users**
+(all share the password `test12345`, e.g. `guest` / `test12345`).
+
+## Using the API
+
+The base URL is the gateway — `http://localhost:3000` locally, or the
+[live demo](https://api-gateway-22ik.onrender.com) on Render.
+
+### Authenticate
+
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{ "username": "guest", "password": "test12345" }'
+```
+
+```jsonc
+{
+  "id": 10,
+  "username": "guest",
+  "email": "guest@example.com",
+  "firstName": "Guest",
+  "lastName": "User",
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+Send the access token as a Bearer header to reach protected routes:
+
+```bash
+curl http://localhost:3000/api/auth/me \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+### List, paginate, filter & sort products
+
+```bash
+# 10 products, skipping the first 20
+curl 'http://localhost:3000/api/products?limit=10&skip=20'
+
+# only the "electronics" category, most expensive first
+curl 'http://localhost:3000/api/products?category=electronics&sortBy=price&order=desc'
+```
+
+```jsonc
+{
+  "products": [ /* … */ ],
+  "total": 50,
+  "skip": 20,
+  "limit": 10
+}
+```
+
+> `limit=0` returns every remaining item. The same `limit` / `skip` / `sortBy` /
+> `order` params also work on `/api/products/search` and `/api/orders`.
+
+### Search products
+
+```bash
+curl 'http://localhost:3000/api/products/search?q=mascara'
+```
+
+### Filter orders
+
+```bash
+# delivered orders placed by user 1
+curl 'http://localhost:3000/api/orders?userId=1&status=delivered'
+```
+
 ## Local development
 
 ### Option A — run everything with Node (fastest inner loop)
@@ -29,6 +125,8 @@ npm run dev           # run all four with node --watch (color-prefixed logs)
 # or: npm start       # plain node, no watch
 ```
 
+![All four services running together under `npm run dev`, with color-prefixed logs](docs/screenshot_terminal.png)
+
 Copy `.env.example` → `.env` in each service before the first run (defaults match
 the ports above). There is **no test runner or linter** — every `npm test` is a
 placeholder that exits 1.
@@ -39,7 +137,9 @@ placeholder that exits 1.
 docker compose up --build
 ```
 
-Brings up the gateway + three services + MongoDB with health-gated `depends_on`.
+Brings up the gateway + three services with health-gated `depends_on`. There is
+no database container — persistence is a file-based mock in the repo-root
+`database/` folder (see below).
 
 ### Per-service (from within `services/<name>/`)
 
@@ -54,7 +154,7 @@ npm start          # plain node index.js
 | URL | What |
 |-----|------|
 | http://localhost:3000/api-docs | Aggregated Swagger UI (all services, via gateway) |
-| http://localhost:3000/api/auth/login | Auth login (seed creds: `guest` / `guest12345`) |
+| http://localhost:3000/api/auth/login | Auth login (seed creds: `guest` / `test12345`) |
 | http://localhost:3001/api-docs | auth-service Swagger UI (direct) |
 | `GET /api/health` on any port | Service health check |
 
@@ -121,7 +221,3 @@ docker compose up --build
 curl http://localhost:3000/api/payments/health
 open http://localhost:3000/api-docs
 ```
-
-### Check live demo on render.
-
-[Live Demo](https://nextjs-home-services-booking.netlify.app/)

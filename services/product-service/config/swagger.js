@@ -15,7 +15,6 @@ const options = {
     servers: [{ url: `http://localhost:${PORT}`, description: "Local" }],
     components: { schemas, responses },
   },
-  // Scan source files for @openapi JSDoc annotations
   apis: ["./index.js", "./routes/*.js"],
 };
 

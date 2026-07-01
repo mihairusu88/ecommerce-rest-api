@@ -10,6 +10,9 @@ ENV NODE_ENV=production
 WORKDIR /app/services/order-service
 COPY --chown=node:node services/order-service/ ./
 COPY --chown=node:node --from=deps /app/services/order-service/node_modules ./node_modules
+# The file-based mock database lives at the repo root and is imported via
+# "../../../database/..." → resolves to /app/database. Copy it into the image.
+COPY --chown=node:node database/ /app/database/
 USER node
 # Render/Compose inject PORT; 3003 is only the local default.
 EXPOSE 3003

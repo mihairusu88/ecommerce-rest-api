@@ -15,10 +15,8 @@ app.use(express.json());
 // login credentials to /api/login as application/x-www-form-urlencoded.
 app.use(express.urlencoded({ extended: false }));
 
-// API routes (mounted under /api)
 app.use("/api", routes);
 
-// Swagger UI (browser) + raw spec
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get("/api-docs.json", (req, res) => res.json(swaggerSpec));
 

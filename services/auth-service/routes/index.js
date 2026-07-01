@@ -1,11 +1,24 @@
 import { Router } from "express";
 import packageJson from "../package.json" with { type: "json" };
 import { authenticate } from "../middleware/authenticate.js";
-import { signToken } from "../config/jwt.js";
-import { findUserByUsername, verifyPassword, toPublicUser } from "../config/users.js";
+import { signToken, signRefreshToken, verifyRefreshToken } from "../utils/jwt.js";
+import { findUserByUsername, findUserById, verifyPassword, toPublicUser } from "../utils/users.js";
+import { setAuthCookies, getRefreshCookie } from "../utils/cookies.js";
+import {
+  addRefreshToken,
+  isRefreshTokenActive,
+  rotateRefreshToken,
+} from "../utils/refreshStore.js";
 
 const router = Router();
 const SERVICE_NAME = packageJson.name;
+
+/** Mint a fresh access + refresh token pair for a user. */
+function issueTokens(user) {
+  const accessToken = signToken({ sub: user.id, username: user.username });
+  const refreshToken = signRefreshToken({ sub: user.id, username: user.username });
+  return { accessToken, refreshToken };
+}
 
 /**
  * @openapi
@@ -45,7 +58,8 @@ router.get("/health", (req, res) => {
  *             $ref: '#/components/schemas/LoginRequest'
  *     responses:
  *       200:
- *         description: Login successful
+ *         description: Login successful — returns the user profile plus access &
+ *           refresh tokens (also set as HTTP cookies).
  *         content:
  *           application/json:
  *             schema:
@@ -72,9 +86,8 @@ router.post("/login", async (req, res) => {
     });
   }
 
-  // Mock lookup for now — replaced by a DB query once persistence lands.
   const user = findUserByUsername(username);
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  if (!user || !(await verifyPassword(password, user.password))) {
     return res.status(401).json({
       status: "error",
       message: "Invalid credentials",
@@ -82,14 +95,15 @@ router.post("/login", async (req, res) => {
     });
   }
 
-  const token = signToken({ sub: user.id, username: user.username });
+  const { accessToken, refreshToken } = issueTokens(user);
+  addRefreshToken(refreshToken);
+  setAuthCookies(res, { accessToken, refreshToken });
+
   res.status(200).json({
-    status: "success",
-    message: "Login successful",
-    token,
-    // OAuth2 token-response fields — let Swagger UI's password flow consume
-    // this same endpoint and apply the JWT as a Bearer token automatically.
-    access_token: token,
+    ...toPublicUser(user),
+    accessToken,
+    refreshToken,
+    access_token: accessToken,
     token_type: "bearer",
   });
 });
@@ -137,9 +151,16 @@ router.get("/me", authenticate, (req, res) => {
  * /api/refresh:
  *   post:
  *     summary: Refresh access token
+ *     description: Validates the supplied refresh token (from the request body or
+ *       the `refreshToken` cookie), rotates it, and returns a new access & refresh
+ *       token pair (also set as HTTP cookies).
  *     tags: [Auth]
- *     security:
- *       - passwordAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RefreshTokenRequest'
  *     responses:
  *       200:
  *         description: Access token refreshed successfully
@@ -152,13 +173,54 @@ router.get("/me", authenticate, (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-router.post("/refresh", authenticate, (req, res) => {
-  // The caller proved possession of a still-valid token; issue a fresh one.
-  const token = signToken({ sub: req.user.sub, username: req.user.username });
+router.post("/refresh", (req, res) => {
+  const providedToken = req.body?.refreshToken || getRefreshCookie(req);
+
+  if (!providedToken) {
+    return res.status(401).json({
+      status: "error",
+      message: "Refresh token is required",
+      statusCode: 401,
+    });
+  }
+
+  // Must be both cryptographically valid AND still active (not already rotated).
+  let payload;
+  try {
+    payload = verifyRefreshToken(providedToken);
+  } catch {
+    return res.status(401).json({
+      status: "error",
+      message: "Invalid or expired refresh token",
+      statusCode: 401,
+    });
+  }
+
+  if (!isRefreshTokenActive(providedToken)) {
+    return res.status(401).json({
+      status: "error",
+      message: "Refresh token has been revoked",
+      statusCode: 401,
+    });
+  }
+
+  const user = findUserById(payload.sub);
+  if (!user) {
+    return res.status(401).json({
+      status: "error",
+      message: "User no longer exists",
+      statusCode: 401,
+    });
+  }
+
+  // Rotate: retire the presented token and issue a fresh pair.
+  const { accessToken, refreshToken } = issueTokens(user);
+  rotateRefreshToken(providedToken, refreshToken);
+  setAuthCookies(res, { accessToken, refreshToken });
+
   res.status(200).json({
-    status: "success",
-    message: "Token refreshed successfully",
-    token,
+    accessToken,
+    refreshToken,
   });
 });
 

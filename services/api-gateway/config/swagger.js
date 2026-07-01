@@ -2,7 +2,7 @@ import swaggerJSDoc from "swagger-jsdoc";
 import packageJson from "../package.json" with { type: "json" };
 import rootPackageJson from "../../../package.json" with { type: "json" };
 import { schemas, responses } from "./schemas.js";
-import { normalizeBaseUrl } from "./url.js";
+import { normalizeBaseUrl } from "../utils/url.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -23,7 +23,6 @@ const options = {
     servers: [{ url: PUBLIC_URL, description: "Gateway" }],
     components: { schemas, responses },
   },
-  // Scan source files for @openapi JSDoc annotations
   apis: ["./index.js", "./routes/*.js"],
 };
 
@@ -58,6 +57,9 @@ const DOWNSTREAM = [
 ];
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "options", "head", "trace"];
+// Matches an OAuth URL's `/api` path (with optional `scheme://host` prefix),
+// capturing the remainder of the path so it can be re-rooted at the gateway.
+const API_PATH_RE = /^(?:[a-z][a-z0-9+.-]*:\/\/[^/]+)?\/api(\/.*)?$/i;
 const CACHE_TTL_MS = 30_000;
 const FETCH_TIMEOUT_MS = 3_000;
 
@@ -80,22 +82,28 @@ function namespaceRefs(fragment, ns) {
  * Rewrite the URLs of an OAuth2 security scheme so they point at the gateway
  * (which proxies to the downstream service) instead of directly at the service.
  *
- * A downstream scheme's `tokenUrl` is `<service>/api/login`, but Swagger UI runs
- * on the gateway's origin — hitting the service directly is cross-origin and the
- * browser blocks it (CORS). Since the gateway already proxies `/api/<svc>` to the
- * service's `/api`, we rewrite `<service>/api/...` to `<gateway>/<pathPrefix>/...`
- * so the token request stays same-origin. Non-oauth2 schemes pass through.
+ * A downstream scheme's `tokenUrl` is `<service-host>/api/login`, but Swagger UI
+ * runs on the gateway's origin — hitting the service directly is cross-origin
+ * (and the declared host is unreachable from the browser anyway: it's
+ * `localhost:<port>` or a Render private host). Since the gateway already proxies
+ * `/api/<svc>` to the service's `/api`, we re-root anything at `/api...` onto
+ * `<gateway>/<pathPrefix>/...` so the token request stays same-origin.
+ *
+ * The downstream's declared host is deliberately ignored — only the path matters
+ * — because it is unpredictable across environments. Non-oauth2 schemes pass
+ * through unchanged.
  */
-function rewriteSchemeUrls(def, { url, pathPrefix }) {
-  if (def.type !== "oauth2" || !def.flows || !url) return def;
+function rewriteSchemeUrls(def, { pathPrefix }) {
+  if (def.type !== "oauth2" || !def.flows) return def;
   const clone = structuredClone(def);
-  const base = `${url}/api`;
   const gatewayBase = `${PUBLIC_URL}${pathPrefix}`;
   for (const flow of Object.values(clone.flows)) {
     for (const key of ["tokenUrl", "authorizationUrl", "refreshUrl"]) {
-      if (typeof flow[key] === "string" && flow[key].startsWith(base)) {
-        flow[key] = gatewayBase + flow[key].slice(base.length);
-      }
+      if (typeof flow[key] !== "string") continue;
+      // Strip an optional `scheme://host` and the leading `/api` segment,
+      // keeping the remainder of the path (e.g. `/login`).
+      const match = API_PATH_RE.exec(flow[key]);
+      if (match) flow[key] = gatewayBase + (match[1] ?? "");
     }
   }
   return clone;
@@ -104,7 +112,7 @@ function rewriteSchemeUrls(def, { url, pathPrefix }) {
 /**
  * Merge one service's spec into the target merged document.
  */
-function mergeService(target, spec, { tag, ns, pathPrefix, url }) {
+function mergeService(target, spec, { tag, ns, pathPrefix }) {
   // Components: namespace names + rewrite internal refs.
   for (const [name, def] of Object.entries(spec.components?.schemas ?? {})) {
     target.components.schemas[ns + name] = namespaceRefs(def, ns);
@@ -121,7 +129,7 @@ function mergeService(target, spec, { tag, ns, pathPrefix, url }) {
   // resolve as-is without rewriting. (Same-named schemes are assumed identical;
   // last one wins.)
   for (const [name, def] of Object.entries(spec.components?.securitySchemes ?? {})) {
-    target.components.securitySchemes[name] = rewriteSchemeUrls(def, { url, pathPrefix });
+    target.components.securitySchemes[name] = rewriteSchemeUrls(def, { pathPrefix });
   }
 
   // Paths: every service already documents its routes under `/api`. Strip that

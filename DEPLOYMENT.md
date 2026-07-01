@@ -7,18 +7,26 @@ Actions.
 ## Topology
 
 ```
-                 ┌────────────────────────── Render (private network) ──────────┐
- internet ──► api-gateway (public)  ──http──►  auth-service                       │
-              /api/auth|products|orders        product-service                    │
-              /api-docs (aggregated)           order-service                       │
-                 └──────────────────────────────────────────────────────────────┘
+ internet ──► api-gateway (public)  ──https──►  auth-service    (public onrender.com)
+              /api/auth|products|orders         product-service (public onrender.com)
+              /api-docs (aggregated)            order-service   (public onrender.com)
 ```
 
-The gateway reaches the other three over Render's private network. `render.yaml`
-wires the downstream addresses automatically with `fromService … property:
-hostport` (yields `host:port`); the gateway prepends `http://`
-([config/url.js](services/api-gateway/config/url.js)). `PORT` is injected by
-Render — nothing hard-codes it.
+The gateway reaches the other three over their **public** `onrender.com` URLs.
+It cannot use Render's private network here: **free web services can't *receive*
+private network traffic**, so private addresses (`fromService … property:
+hostport`) would be unreachable. Instead, `render.yaml` declares
+`AUTH_SERVICE_URL` / `PRODUCT_SERVICE_URL` / `ORDER_SERVICE_URL` as `sync: false`
+vars that you set **manually in the dashboard** to each downstream's public URL
+(e.g. `https://auth-service-xxxx.onrender.com`). The gateway prepends `http://`
+only if a scheme is missing ([config/url.js](services/api-gateway/config/url.js)).
+`PORT` is injected by Render — nothing hard-codes it.
+
+> Free services also spin down after 15 min idle and take ~1 min to wake on the
+> next public request — so a downstream may briefly show "Unavailable" in the
+> aggregated docs (the gateway's fetch times out after 3s) until it's warm.
+> Upgrade the downstreams to a paid plan to get private networking + no
+> spin-down; then you can switch these vars back to `fromService … property: hostport`.
 
 ## Files
 
@@ -26,7 +34,7 @@ Render — nothing hard-codes it.
 |------|---------|
 | `services/*/Dockerfile` | One multi-stage image per service. **Build context is the repo root** (the gateway imports the repo-root `package.json`). |
 | `.dockerignore` | Keeps `node_modules`/`.env` out of the build context. |
-| `docker-compose.yml` | Local full stack (+ MongoDB). `docker compose up --build`. |
+| `docker-compose.yml` | Local full stack (gateway + three services). `docker compose up --build`. |
 | `render.yaml` | Render Blueprint — provisions all four services. |
 | `.github/workflows/deploy.yml` | On push to `master`: build every image, then trigger Render deploys via the REST API. |
 
@@ -48,6 +56,16 @@ docker compose up --build
    - **auth-service → `JWT_SECRET`** — a long random string
      (`openssl rand -hex 32`).
 4. Let the first deploy finish so the services exist and get their URLs.
+5. **Wire the gateway to the downstreams' public URLs.** Copy each downstream's
+   public URL from its dashboard page (e.g. `https://auth-service-xxxx.onrender.com`),
+   then on **api-gateway → Environment** set:
+   - `AUTH_SERVICE_URL` → auth-service's public URL
+   - `PRODUCT_SERVICE_URL` → product-service's public URL
+   - `ORDER_SERVICE_URL` → order-service's public URL
+
+   Save and let the gateway redeploy. (These are `sync: false` in the blueprint,
+   so Render won't overwrite them.) On the free plan the gateway can't reach the
+   downstreams over the private network — see [Topology](#topology).
 
 `autoDeploy` is **off** in the blueprint on purpose — deploys are triggered by
 GitHub Actions (below) so nothing ships unless CI passes.
@@ -88,8 +106,10 @@ Trigger manually anytime from the **Actions** tab (`workflow_dispatch`).
 - **No tests yet.** `npm test` is a placeholder that exits 1, so CI runs
   `npm ci` + the Docker build only. Add a real test step to the `build` job once
   a test runner exists.
-- **MongoDB / Kafka** are declared deps but not wired up. When they are:
-  - add a managed MongoDB (e.g. Atlas) and set `MONGODB_URI` per service
-    (`sync: false` in `render.yaml`, uncomment in `docker-compose.yml`);
-  - Render has no managed Kafka — use an external provider and add its
-    connection env vars the same way.
+- **Persistence is a file-based mock.** Data lives in the repo-root `database/`
+  folder (`users.js`, `products.js`) and is imported directly by the services —
+  there is no database server to provision. The auth and product Dockerfiles copy
+  `database/` into their images (`COPY database/ /app/database/`).
+- **Kafka** is a declared dep but not wired up. Render has no managed Kafka —
+  when it lands, use an external provider and add its connection env vars via
+  `render.yaml` (`sync: false`) / `docker-compose.yml`.

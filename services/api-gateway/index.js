@@ -2,13 +2,24 @@ import "dotenv/config";
 import express from "express";
 import swaggerUi from "swagger-ui-express";
 import { getMergedSpec } from "./config/swagger.js";
-import { proxyMiddlewares } from "./config/proxy.js";
+import { proxyMiddlewares } from "./utils/proxy.js";
 import routes from "./routes/index.js";
 import packageJson from "./package.json" with { type: "json" };
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SERVICE_NAME = packageJson.name || "api-gateway";
+
+// Trim boilerplate from the Authorize modal (OAuth2 password flow): the scopes
+// explainer paragraphs and the "Token URL" / "Flow" lines. The description hint
+// ("Demo credentials …") lives in .renderedMarkdown and also contains inline
+// <code>, so it's re-shown after the broad Token-URL rule hides it.
+const SWAGGER_CSS = `
+  .swagger-ui .auth-container .scope-def { display: none; }
+  .swagger-ui .auth-container p.flow { display: none; }
+  .swagger-ui .auth-container p:has(> code) { display: none; }
+  .swagger-ui .auth-container .renderedMarkdown p:has(> code) { display: block; }
+`;
 
 app.disable("x-powered-by");
 
@@ -19,14 +30,12 @@ app.use(proxyMiddlewares);
 
 app.use(express.json());
 
-// API routes (gateway's own endpoints live under /api)
 app.use("/api", routes);
 
-// Aggregated Swagger UI (browser) — single page, endpoints grouped by service
 app.use("/api-docs", swaggerUi.serve, async (req, res, next) => {
   try {
     const spec = await getMergedSpec();
-    swaggerUi.setup(spec, { explorer: false })(req, res, next);
+    swaggerUi.setup(spec, { explorer: false, customCss: SWAGGER_CSS })(req, res, next);
   } catch (err) {
     next(err);
   }

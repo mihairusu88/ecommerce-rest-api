@@ -1,14 +1,6 @@
 /**
- * Reusable OpenAPI component schemas & responses for this service.
- *
- * Schemas are referenced from route JSDoc via `$ref`, e.g.
- *   schema:
- *     $ref: '#/components/schemas/HealthResponse'
- *
- * Responses are referenced the same way, e.g.
- *   responses:
- *     404:
- *       $ref: '#/components/responses/NotFound'
+ * Reusable OpenAPI component schemas & responses, referenced from route JSDoc
+ * via `$ref` (e.g. `$ref: '#/components/schemas/HealthResponse'`).
  */
 
 export const schemas = {

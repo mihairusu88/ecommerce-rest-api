@@ -1,14 +1,6 @@
 /**
- * Reusable OpenAPI component schemas & responses for this service.
- *
- * Schemas are referenced from route JSDoc via `$ref`, e.g.
- *   schema:
- *     $ref: '#/components/schemas/HealthResponse'
- *
- * Responses are referenced the same way, e.g.
- *   responses:
- *     404:
- *       $ref: '#/components/responses/NotFound'
+ * Reusable OpenAPI component schemas & responses, referenced from route JSDoc
+ * via `$ref` (e.g. `$ref: '#/components/schemas/HealthResponse'`).
  */
 
 export const schemas = {
@@ -30,29 +22,39 @@ export const schemas = {
     type: "object",
     required: ["username", "password"],
     properties: {
-      username: { type: "string", example: "guest" },
-      password: { type: "string", example: "guest12345" },
+      username: { type: "string", example: "emilys" },
+      password: { type: "string", example: "emilyspass" },
     },
   },
   UserDetails: {
     type: "object",
-    required: ["id", "username", "email"],
+    required: ["id", "username", "email", "firstName", "lastName", "gender", "image"],
     properties: {
       id: { type: "integer", example: 1 },
-      username: { type: "string", example: "guest" },
-      email: { type: "string", format: "email", example: "guest@example.com" },
+      username: { type: "string", example: "emilys" },
+      email: { type: "string", format: "email", example: "emily.johnson@example.com" },
+      firstName: { type: "string", example: "Emily" },
+      lastName: { type: "string", example: "Johnson" },
+      gender: { type: "string", example: "female" },
+      image: { type: "string", format: "uri", example: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=128&h=128&q=80" },
     },
   },
   LoginResponse: {
     type: "object",
-    required: ["status", "message", "token"],
+    required: ["id", "username", "email", "accessToken", "refreshToken"],
     properties: {
-      status: { type: "string", example: "success" },
-      message: { type: "string", example: "Login successful" },
-      token: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+      id: { type: "integer", example: 1 },
+      username: { type: "string", example: "emilys" },
+      email: { type: "string", format: "email", example: "emily.johnson@example.com" },
+      firstName: { type: "string", example: "Emily" },
+      lastName: { type: "string", example: "Johnson" },
+      gender: { type: "string", example: "female" },
+      image: { type: "string", format: "uri", example: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=128&h=128&q=80" },
+      accessToken: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+      refreshToken: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
       access_token: {
         type: "string",
-        description: "Same JWT as `token`, named per OAuth2 so Swagger's password flow can consume it.",
+        description: "Same JWT as `accessToken`, named per OAuth2 so Swagger's password flow can consume it.",
         example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
       },
       token_type: { type: "string", example: "bearer" },
@@ -69,18 +71,21 @@ export const schemas = {
   },
   RefreshTokenRequest: {
     type: "object",
-    required: ["refreshToken"],
+    description:
+      "Optional — if omitted, the refresh token is read from the `refreshToken` cookie.",
     properties: {
-      refreshToken: { type: "string", example: "dummy-refresh-token" },
+      refreshToken: {
+        type: "string",
+        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      },
     },
   },
   RefreshTokenResponse: {
     type: "object",
-    required: ["status", "message", "token"],
+    required: ["accessToken", "refreshToken"],
     properties: {
-      status: { type: "string", example: "success" },
-      message: { type: "string", example: "Token refreshed successfully" },
-      token: { type: "string", example: "new-dummy-jwt-token" },
+      accessToken: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+      refreshToken: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
     },
   },
   ErrorResponse: {

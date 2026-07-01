@@ -23,7 +23,7 @@ const options = {
         passwordAuth: {
           type: "oauth2",
           description:
-            "Log in with username + password. **Demo credentials — username: `guest`, password: `guest12345`.** Leave client id/secret blank.",
+            "Log in with username + password. **Demo credentials — username: `guest`, password: `test12345`.** Leave client id/secret blank.",
           flows: {
             password: {
               tokenUrl: `http://localhost:${PORT}/api/login`,
@@ -34,7 +34,6 @@ const options = {
       },
     },
   },
-  // Scan source files for @openapi JSDoc annotations
   apis: ["./index.js", "./routes/*.js"],
 };
 
