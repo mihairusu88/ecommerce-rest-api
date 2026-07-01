@@ -52,13 +52,55 @@ jobs:
     runs-on: ubuntu-latest
     # Only deploy from master (not manual dispatches on other refs).
     if: github.ref == 'refs/heads/master'
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
     steps:
-      # Deploy downstream services first, then the gateway.
-      - name: Deploy auth-service
-        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_AUTH }}"
-      - name: Deploy product-service
-        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PRODUCT }}"
-      - name: Deploy order-service
-        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_ORDER }}"
-      - name: Deploy api-gateway
-        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_GATEWAY }}"
+      # Trigger deploys via the Render REST API instead of per-service deploy
+      # hooks. Service IDs are resolved by name at runtime, so the only secret
+      # needed is RENDER_API_KEY — nothing to keep in sync when a service is
+      # recreated (which is what left the old deploy hooks returning 404).
+      # Downstream services deploy first, then the gateway.
+      - name: Trigger Render deploys
+        run: |
+          set -u
+          if [ -z "${RENDER_API_KEY:-}" ]; then
+            echo "::error::RENDER_API_KEY secret is not set. Create a key at Render → Account Settings → API Keys and add it as the RENDER_API_KEY repo secret."
+            exit 1
+          fi
+
+          api="https://api.render.com/v1"
+          auth="Authorization: Bearer ${RENDER_API_KEY}"
+          failed=0
+
+          # Resolve a Render service id from its service name (as in render.yaml).
+          service_id() {
+            curl -fsS -H "$auth" -H "Accept: application/json" \
+              "$api/services?name=$1&limit=1" \
+              | jq -r '.[0].service.id // empty'
+          }
+
+          deploy() {
+            name="$1"
+            id="$(service_id "$name")" || id=""
+            if [ -z "$id" ]; then
+              echo "::error::$name: no Render service found with this name. Check the name matches render.yaml and the API key has access."
+              failed=1
+              return
+            fi
+            code="$(curl -sS -o /tmp/deploy-resp.json -w '%{http_code}' \
+              -H "$auth" -H "Accept: application/json" -H "Content-Type: application/json" \
+              -X POST "$api/services/$id/deploys" -d '{}')"
+            if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+              echo "$name ($id): deploy triggered (HTTP $code)"
+            else
+              echo "::error::$name ($id): deploy request returned HTTP $code — $(cat /tmp/deploy-resp.json)"
+              failed=1
+            fi
+          }
+
+          deploy "auth-service"
+          deploy "product-service"
+          deploy "order-service"
+          deploy "api-gateway"
+
+          exit "$failed"

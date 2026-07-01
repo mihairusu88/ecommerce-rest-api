@@ -144,7 +144,8 @@ Full details in [DEPLOYMENT.md](DEPLOYMENT.md); the key facts:
 - `render.yaml` is a Render Blueprint provisioning all four as Docker web
   services. `autoDeploy` is **off**; deploys are triggered by GitHub Actions.
 - `.github/workflows/deploy.yml` — on push to `master`: matrix-build every
-  image, then POST each service's Render deploy hook (downstreams first, gateway
-  last). No test step yet (see Commands).
+  image, then trigger each service's deploy via the Render REST API (service ids
+  resolved by name; downstreams first, gateway last). Needs a single
+  `RENDER_API_KEY` secret. No test step yet (see Commands).
 - `PORT` is injected by Render/Compose and never hard-coded; the port table above
   is only local defaults.

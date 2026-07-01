@@ -28,7 +28,7 @@ Render — nothing hard-codes it.
 | `.dockerignore` | Keeps `node_modules`/`.env` out of the build context. |
 | `docker-compose.yml` | Local full stack (+ MongoDB). `docker compose up --build`. |
 | `render.yaml` | Render Blueprint — provisions all four services. |
-| `.github/workflows/deploy.yml` | On push to `master`: build every image, then trigger Render deploy hooks. |
+| `.github/workflows/deploy.yml` | On push to `master`: build every image, then trigger Render deploys via the REST API. |
 
 ## Local run
 
@@ -52,24 +52,24 @@ docker compose up --build
 `autoDeploy` is **off** in the blueprint on purpose — deploys are triggered by
 GitHub Actions (below) so nothing ships unless CI passes.
 
-### 2. Render — grab a Deploy Hook for each service
+### 2. Render — create an API key
 
-For each service: **Dashboard → the service → Settings → Deploy Hook → copy URL.**
-You'll have four URLs (gateway, auth, product, order).
+**Dashboard → Account Settings → API Keys → Create API Key → copy it.**
+One key covers all four services — the workflow looks each service up by name
+(as declared in `render.yaml`) and triggers its deploy via the Render REST API.
 
-### 3. GitHub — add the hooks as repository secrets
+### 3. GitHub — add the key as a repository secret
 
 **Repo → Settings → Secrets and variables → Actions → New repository secret.**
-Add all four:
+Add one:
 
 | Secret name | Value |
 |-------------|-------|
-| `RENDER_DEPLOY_HOOK_GATEWAY` | api-gateway deploy hook URL |
-| `RENDER_DEPLOY_HOOK_AUTH` | auth-service deploy hook URL |
-| `RENDER_DEPLOY_HOOK_PRODUCT` | product-service deploy hook URL |
-| `RENDER_DEPLOY_HOOK_ORDER` | order-service deploy hook URL |
+| `RENDER_API_KEY` | the Render API key from step 2 |
 
-That's it — no Render API key needed. Deploy hooks are the only credential.
+That's it — one credential. (This replaces the old per-service deploy hooks,
+which broke silently with a 404 whenever a service was recreated and got a new
+`srv-` id. Resolving service ids by name avoids that.)
 
 ## The deploy flow
 
@@ -77,8 +77,9 @@ Push to `master` →
 
 1. **build** job — for each service: `npm ci` + `docker build` (matrix, in
    parallel). Fails the pipeline if any image doesn't build.
-2. **deploy** job — after all builds pass, `POST`s each Render deploy hook
-   (downstreams first, then the gateway).
+2. **deploy** job — after all builds pass, resolves each service id by name and
+   `POST`s the Render REST API to trigger a deploy (downstreams first, then the
+   gateway).
 
 Trigger manually anytime from the **Actions** tab (`workflow_dispatch`).
 
