@@ -18,7 +18,7 @@ Through the gateway those become `GET /api/auth/health`, `GET /api/products/heal
 
 > Architecture deep-dive: [CLAUDE.md](CLAUDE.md) · Deploy details: [DEPLOYMENT.md](DEPLOYMENT.md)
 
-![Aggregated Swagger UI served by the API gateway at /api-docs](docs/screenshot_swagger_ui.png)
+<img width="1905" height="1439" alt="image" src="https://github.com/user-attachments/assets/2dcd4105-4b99-48f1-9d3c-b5aa20cee3ce" />
 
 > **Try it live** — the full stack is deployed on Render:
 > [open the aggregated Swagger UI](https://api-gateway-22ik.onrender.com/api-docs)
@@ -125,7 +125,7 @@ npm run dev           # run all four with node --watch (color-prefixed logs)
 # or: npm start       # plain node, no watch
 ```
 
-![All four services running together under `npm run dev`, with color-prefixed logs](docs/screenshot_terminal.png)
+<img width="1892" height="512" alt="Screenshot 2026-07-02 at 11 12 03" src="https://github.com/user-attachments/assets/cf88c5ce-0f55-4507-9878-87bca56c606d" />
 
 Copy `.env.example` → `.env` in each service before the first run (defaults match
 the ports above). There is **no test runner or linter** — every `npm test` is a
