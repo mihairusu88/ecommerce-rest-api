@@ -7,8 +7,8 @@ import { startOrderConsumer, stopOrderConsumer } from "./utils/kafka.js";
 import packageJson from "./package.json" with { type: "json" };
 
 const app = express();
-const PORT = process.env.PORT || 3002;
-const SERVICE_NAME = packageJson.name || "product-service";
+const PORT = process.env.PORT || 3004;
+const SERVICE_NAME = packageJson.name || "payment-service";
 
 app.disable("x-powered-by");
 app.use(express.json());
@@ -44,7 +44,7 @@ app.listen(PORT, () => {
   console.log(`[${SERVICE_NAME}] swagger docs at http://localhost:${PORT}/api-docs`);
 });
 
-// Start consuming OrderPlaced events (no-op when KAFKA_BROKERS is unset).
+// Open a pending payment for each placed order (no-op when KAFKA_BROKERS unset).
 startOrderConsumer();
 
 // Disconnect cleanly on shutdown so the consumer group rebalances promptly.

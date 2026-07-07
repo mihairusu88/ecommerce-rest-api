@@ -9,6 +9,7 @@ import {
   isRefreshTokenActive,
   rotateRefreshToken,
 } from "../utils/refreshStore.js";
+import { publishUserLoggedIn, publishUserDetailed } from "../utils/kafka.js";
 
 const router = Router();
 const SERVICE_NAME = packageJson.name;
@@ -99,6 +100,7 @@ router.post("/login", async (req, res) => {
   addRefreshToken(refreshToken);
   setAuthCookies(res, { accessToken, refreshToken });
 
+  await publishUserLoggedIn(user.id);
   res.status(200).json({
     ...toPublicUser(user),
     accessToken,
@@ -128,7 +130,7 @@ router.post("/login", async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-router.get("/me", authenticate, (req, res) => {
+router.get("/me", authenticate, async (req, res) => {
   // req.user is the decoded token payload, set by the authenticate middleware.
   const user = findUserByUsername(req.user.username);
   if (!user) {
@@ -139,6 +141,7 @@ router.get("/me", authenticate, (req, res) => {
     });
   }
 
+  await publishUserDetailed(user.id, toPublicUser(user));
   res.status(200).json({
     status: "success",
     message: "User information retrieved successfully",

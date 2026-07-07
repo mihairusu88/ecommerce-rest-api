@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api-gateway, auth-service, product-service, order-service]
+        service: [api-gateway, auth-service, product-service, order-service, payment-service, notification-service, analytics-service]
     steps:
       - uses: actions/checkout@v4
 
@@ -101,6 +101,9 @@ jobs:
           deploy "auth-service"
           deploy "product-service"
           deploy "order-service"
+          deploy "payment-service"
+          deploy "notification-service"
+          deploy "analytics-service"
           deploy "api-gateway"
 
           exit "$failed"

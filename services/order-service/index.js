@@ -3,6 +3,7 @@ import express from "express";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger.js";
 import routes from "./routes/index.js";
+import { initProducer, disconnectProducer } from "./utils/kafka.js";
 import packageJson from "./package.json" with { type: "json" };
 
 const app = express();
@@ -42,3 +43,14 @@ app.listen(PORT, () => {
   console.log(`[${SERVICE_NAME}] running on http://localhost:${PORT}`);
   console.log(`[${SERVICE_NAME}] swagger docs at http://localhost:${PORT}/api-docs`);
 });
+
+// Connect the Kafka producer (no-op when KAFKA_BROKERS is unset).
+initProducer();
+
+// Disconnect cleanly on shutdown so the broker isn't left waiting on us.
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.on(signal, async () => {
+    await disconnectProducer();
+    process.exit(0);
+  });
+}

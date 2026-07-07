@@ -11,35 +11,51 @@ dependency tree**; every service installs its own `node_modules`. The root
 `package.json` is orchestration-only (`concurrently` + `npm --prefix` scripts,
 see Commands); it is not an npm workspace.
 
-| Service           | Port | Path prefix (via gateway) | Responsibility                        |
-|-------------------|------|---------------------------|---------------------------------------|
-| `api-gateway`     | 3000 | —                         | Entry point; aggregates OpenAPI docs  |
-| `auth-service`    | 3001 | `/api/auth`               | Authentication & authorization        |
-| `product-service` | 3002 | `/api/products`           | Product catalog                       |
-| `order-service`   | 3003 | `/api/orders`             | Order management                      |
+| Service                | Port | Path prefix (via gateway) | Responsibility                        |
+|------------------------|------|---------------------------|---------------------------------------|
+| `api-gateway`          | 3000 | —                         | Entry point; aggregates OpenAPI docs  |
+| `auth-service`         | 3001 | `/api/auth`               | Authentication & authorization        |
+| `product-service`      | 3002 | `/api/products`           | Product catalog                       |
+| `order-service`        | 3003 | `/api/orders`             | Order management                      |
+| `payment-service`      | 3004 | `/api/payments`           | Payment processing                    |
+| `notification-service` | 3005 | `/api/notifications`      | User notifications                    |
+| `analytics-service`    | 3006 | `/api/analytics`          | Metrics & event tracking              |
 
 All application routes live under an `/api` prefix. Each service mounts its
 router at `/api`, so it answers `GET /api/health` directly; through the gateway
 those become `GET /api/auth/health`, `GET /api/products/health`, etc.
 
 Current state: `auth-service` has real JWT auth (login / me / refresh — see
-below); `product-service` serves a 50-item catalog (list / get-by-id);
-`order-service` serves a 25-item order store (list / get-by-id), mirroring the
-product service. Persistence is a
-**file-based mock database** in the repo-root `database/` folder — plain JS
-modules exporting in-memory arrays (`users.js`, `products.js`, `orders.js`), imported directly
-by the services. There is no MongoDB. `kafkajs` is still a declared dependency
-but **not yet wired up**; expect to add Kafka as features land.
+below); `product-service` serves a 50-item catalog (list / search / get-by-id)
+and consumes `OrderPlaced` events to adjust inventory; `order-service` serves a
+25-item order store (list / get-by-id) plus `POST /api/orders`, which creates an
+order and **publishes an `OrderPlaced` event** to Kafka. `payment-service`,
+`notification-service` and `analytics-service` are thin CRUD-style services over
+their own mock stores (list / get / create; analytics also has a computed
+`/summary`). Persistence is a **file-based mock database** in the repo-root
+`database/` folder — plain JS modules exporting in-memory arrays (`users.js`,
+`products.js`, `orders.js`, `payments.js`, `notifications.js`,
+`analyticsEvents.js`), imported directly by the services. There is no MongoDB.
+
+`kafkajs` **is wired up** across two topics — `orders` (order → product +
+payment) and `user-events` (auth → notification + analytics); see "Event-driven
+flow" below. It is **optional and env-gated** — with no `KAFKA_BROKERS` set (the
+default for `npm run dev`), every service still boots and behaves as the pure
+file-based mock.
 
 ## Commands
 
 Whole system, from the repo root (uses `concurrently`):
 
 ```bash
-npm run install:all   # install root + all four services
-npm run dev           # run all four with node --watch (color-prefixed logs)
-npm start             # run all four with plain node
+npm run install:all   # install root + all seven services
+npm run dev           # run all seven with node --watch (color-prefixed logs)
+npm start             # run all seven with plain node
 ```
+
+`npm run dev` runs the services in **mock mode** (no `KAFKA_BROKERS`). To
+exercise the live Kafka flow, use Docker Compose instead
+(`docker compose up --build`), which also starts a Kafka broker — see Deployment.
 
 Or per service, from within `services/<name>/`:
 
@@ -56,7 +72,7 @@ no config exists yet. CI therefore only runs `npm ci` + a Docker build.
 
 ## Architecture
 
-### Per-service layout (identical across all four)
+### Per-service layout (identical across all seven)
 
 - `index.js` — Express app: `express.json()`, mounts `routes/`, serves Swagger
   UI at `/api-docs` and raw spec at `/api-docs.json`, then a 404 handler and a
@@ -142,6 +158,53 @@ Downstream URLs come from `AUTH_SERVICE_URL` / `PRODUCT_SERVICE_URL` /
 full `http://…` URLs; `config/url.js` (`normalizeBaseUrl`) prepends `http://`
 when the scheme is missing so both forms work.
 
+### Event-driven flow (Kafka)
+
+Two topics connect the services, each **fanning out** to independent consumers.
+The rule to follow when adding flows: the service that *owns* a fact publishes it
+once; every interested service subscribes on its **own consumer group**. Never
+relay events service-to-service (e.g. notification → analytics) — that chains
+consumers and couples their availability; both should read the source topic
+directly.
+
+```
+order-service --( OrderPlaced )--> [ "orders" topic ] --> product-service  (decrement stock)
+  (POST /api/orders)                                  \-> payment-service  (open pending payment)
+
+auth-service  --( UserLoggedIn )----> [ "user-events" ] --> notification-service (notify user)
+  (POST /api/login)  ( UserDetailed )  topic            \-> analytics-service    (record event)
+  (GET  /api/me)
+```
+
+- **`orders` topic.** Producer `order-service/utils/kafka.js` (`publishOrderPlaced`,
+  keyed by `orderId`). Consumers: `product-service` (group
+  `product-service-inventory` → `reduceStock()` in `utils/inventory.js`) and
+  `payment-service` (group `payment-service-group` →
+  `createPendingPaymentFromOrder()`, idempotent per `orderId`).
+- **`user-events` topic.** Producer `auth-service/utils/kafka.js`
+  (`publishUserLoggedIn` on login, `publishUserDetailed` on `GET /api/me`), keyed
+  by `userId`. Consumers: `notification-service` (group
+  `notification-service-group`) and `analytics-service` (group
+  `analytics-service-group` → `recordEvent()`, mapping `UserLoggedIn` →
+  `user_login`, `UserDetailed` → `user_details_viewed`; it records only
+  type/user/timestamp, **not** the profile PII the event carries).
+- **Consumer robustness** — every consumer calls an idempotent `ensureTopic()`
+  (admin `createTopics`) before subscribing, because subscribing `fromBeginning`
+  to a not-yet-auto-created topic races and fails ("does not host this
+  topic-partition").
+- **Optional & non-fatal** — all sides read `KAFKA_BROKERS` (comma-separated
+  `host:port`). Unset → mock mode (producers no-op, consumers never start). All
+  connect/publish/consume failures are logged, never thrown: an HTTP response
+  (order placed, login, `/me`) never fails just because an event couldn't ship or
+  be handled. Env vars: `KAFKA_CLIENT_ID`, `KAFKA_GROUP_ID`, `KAFKA_ORDERS_TOPIC`
+  (default `orders`), `KAFKA_USER_EVENTS_TOPIC` (default `user-events`).
+  Producers/consumers disconnect on SIGINT/SIGTERM.
+- **Running it live** — `docker compose up --build` starts a single-node Kafka
+  broker (KRaft, no ZooKeeper) + a **Kafka-UI** at `http://localhost:8080` for
+  inspecting topics/messages/consumer-lag, and sets `KAFKA_BROKERS=kafka:9092`
+  for all six domain services; topics auto-create on first use. On Render there
+  is no broker (free tier), so services run in mock mode.
+
 ### Shared conventions
 
 - **ESM throughout** — `"type": "module"`; note JSON imports use the
@@ -153,7 +216,8 @@ when the scheme is missing so both forms work.
 - **Health responses** — `{ status: "OK", service, uptime }`.
 - The gateway both aggregates docs and **reverse-proxies** request traffic:
   `config/proxy.js` uses [`http-proxy-middleware`](https://github.com/chimurai/http-proxy-middleware)
-  to forward `/api/auth`, `/api/products`, and `/api/orders` to the
+  to forward `/api/auth`, `/api/products`, `/api/orders`, `/api/payments`,
+  `/api/notifications` and `/api/analytics` to the
   corresponding downstream service, rewriting the service segment back to `/api`
   (e.g. `/api/orders/health` → the order service's `/api/health`), so the
   prefixed paths shown in the merged Swagger UI are live. The proxies are
@@ -167,14 +231,19 @@ Full details in [DEPLOYMENT.md](DEPLOYMENT.md); the key facts:
 
 - Each service has a multi-stage `Dockerfile`. **The Docker build context is the
   repo root, not the service dir** — because the gateway imports the repo-root
-  `package.json` for its spec version, and the auth/product/order services import
-  the repo-root `database/` folder. The Dockerfiles copy those in (`COPY database/
-  /app/database/` for auth + product + order). Paths in the Dockerfiles are repo-relative.
-- `docker-compose.yml` runs the full local stack (gateway + three services) with
-  health-gated `depends_on`: `docker compose up --build`. No database container —
-  persistence is the file-based mock in `database/`.
-- `render.yaml` is a Render Blueprint provisioning all four as Docker web
+  `package.json` for its spec version, and every non-gateway service imports the
+  repo-root `database/` folder. The Dockerfiles copy those in (`COPY database/
+  /app/database/` for all six non-gateway services). Paths in the Dockerfiles are
+  repo-relative.
+- `docker-compose.yml` runs the full local stack (gateway + six services + a
+  single-node Kafka broker + a Kafka-UI at `:8080`) with health-gated
+  `depends_on`: `docker compose up --build`. No database container — persistence
+  is the file-based mock in `database/`. The Kafka broker (KRaft mode, no
+  ZooKeeper) makes the event flows live; all six domain services depend on it
+  being healthy.
+- `render.yaml` is a Render Blueprint provisioning all seven as Docker web
   services. `autoDeploy` is **off**; deploys are triggered by GitHub Actions.
+  There is no Kafka on Render (free tier) — order/product run in mock mode there.
 - `.github/workflows/deploy.yml` — on push to `master`: matrix-build every
   image, then trigger each service's deploy via the Render REST API (service ids
   resolved by name; downstreams first, gateway last). Needs a single

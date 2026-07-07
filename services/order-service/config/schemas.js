@@ -62,6 +62,26 @@ export const schemas = {
       limit: { type: "integer", example: 30 },
     },
   },
+  CreateOrderRequest: {
+    type: "object",
+    required: ["userId", "products"],
+    properties: {
+      userId: { type: "integer", example: 1 },
+      products: {
+        type: "array",
+        minItems: 1,
+        description: "Line items to order; each references a product id and quantity.",
+        items: {
+          type: "object",
+          required: ["id", "quantity"],
+          properties: {
+            id: { type: "integer", example: 16 },
+            quantity: { type: "integer", minimum: 1, example: 2 },
+          },
+        },
+      },
+    },
+  },
   ErrorResponse: {
     type: "object",
     required: ["status", "message", "statusCode"],
@@ -74,6 +94,14 @@ export const schemas = {
 };
 
 export const responses = {
+  BadRequest: {
+    description: "The request payload was invalid",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+  },
   NotFound: {
     description: "The requested resource was not found",
     content: {

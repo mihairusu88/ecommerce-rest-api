@@ -56,6 +56,48 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # No managed Kafka on the free tier — order-service runs in mock mode here
+      # (KAFKA_BROKERS unset), so orders are created but no event is published.
+      # Point this at a broker (e.g. a managed Kafka) to enable the live flow.
+
+  - type: web
+    name: payment-service
+    runtime: docker
+    dockerfilePath: ./services/payment-service/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  - type: web
+    name: notification-service
+    runtime: docker
+    dockerfilePath: ./services/notification-service/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  - type: web
+    name: analytics-service
+    runtime: docker
+    dockerfilePath: ./services/analytics-service/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
 
   - type: web
     name: api-gateway
@@ -88,3 +130,13 @@ services:
         value: https://product-service-wupe.onrender.com
       - key: ORDER_SERVICE_URL
         value: https://order-service-vvxp.onrender.com
+      # Newer services: set these to the downstreams' PUBLIC onrender.com URLs
+      # after their first deploy (same CAVEAT as above — the subdomain is fixed
+      # to the current instance). `sync: false` prompts for the value on create;
+      # until set, the gateway simply lists these sections as unavailable.
+      - key: PAYMENT_SERVICE_URL
+        sync: false
+      - key: NOTIFICATION_SERVICE_URL
+        sync: false
+      - key: ANALYTICS_SERVICE_URL
+        sync: false

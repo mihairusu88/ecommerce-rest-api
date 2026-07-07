@@ -1,6 +1,8 @@
 import { Router } from "express";
 import packageJson from "../package.json" with { type: "json" };
 import orders from "../../../database/orders.js";
+import { createOrder } from "../utils/orders.js";
+import { publishOrderPlaced } from "../utils/kafka.js";
 
 const router = Router();
 const SERVICE_NAME = packageJson.name;
@@ -96,6 +98,44 @@ router.get("/orders", (req, res) => {
     skip,
     limit: page.length,
   });
+});
+
+/**
+ * @openapi
+ * /api/orders:
+ *   post:
+ *     summary: Place a new order
+ *     description: >
+ *       Creates an order from the given line items (enriched from the product
+ *       catalogue) and publishes an `OrderPlaced` event to the `orders` Kafka
+ *       topic. The product service consumes that event to decrement inventory.
+ *       When Kafka is disabled (no `KAFKA_BROKERS`), the order is still created;
+ *       only the event publish is skipped.
+ *     tags: [Orders]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateOrderRequest'
+ *     responses:
+ *       201:
+ *         description: The created order
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Order'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
+router.post("/orders", async (req, res) => {
+  const order = createOrder(req.body);
+  // Fire the event *after* the order is persisted. publishOrderPlaced never
+  // throws — a broker outage must not fail an otherwise-valid order.
+  await publishOrderPlaced(order);
+  res.status(201).json(order);
 });
 
 /**

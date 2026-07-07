@@ -4,6 +4,9 @@ import { normalizeBaseUrl } from "./url.js";
 const AUTH_SERVICE_URL = normalizeBaseUrl(process.env.AUTH_SERVICE_URL || "http://localhost:3001");
 const PRODUCT_SERVICE_URL = normalizeBaseUrl(process.env.PRODUCT_SERVICE_URL || "http://localhost:3002");
 const ORDER_SERVICE_URL = normalizeBaseUrl(process.env.ORDER_SERVICE_URL || "http://localhost:3003");
+const PAYMENT_SERVICE_URL = normalizeBaseUrl(process.env.PAYMENT_SERVICE_URL || "http://localhost:3004");
+const NOTIFICATION_SERVICE_URL = normalizeBaseUrl(process.env.NOTIFICATION_SERVICE_URL || "http://localhost:3005");
+const ANALYTICS_SERVICE_URL = normalizeBaseUrl(process.env.ANALYTICS_SERVICE_URL || "http://localhost:3006");
 
 // Gateway path prefixes here mirror the prefixes used when merging each
 // service's spec in config/swagger.js. Every service mounts its routes under
@@ -13,6 +16,9 @@ const TARGETS = [
   { prefix: "/api/auth", url: AUTH_SERVICE_URL },
   { prefix: "/api/products", url: PRODUCT_SERVICE_URL },
   { prefix: "/api/orders", url: ORDER_SERVICE_URL },
+  { prefix: "/api/payments", url: PAYMENT_SERVICE_URL },
+  { prefix: "/api/notifications", url: NOTIFICATION_SERVICE_URL },
+  { prefix: "/api/analytics", url: ANALYTICS_SERVICE_URL },
 ];
 
 /**

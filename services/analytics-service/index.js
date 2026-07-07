@@ -3,12 +3,12 @@ import express from "express";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger.js";
 import routes from "./routes/index.js";
-import { startOrderConsumer, stopOrderConsumer } from "./utils/kafka.js";
+import { startUserEventConsumer, stopUserEventConsumer } from "./utils/kafka.js";
 import packageJson from "./package.json" with { type: "json" };
 
 const app = express();
-const PORT = process.env.PORT || 3002;
-const SERVICE_NAME = packageJson.name || "product-service";
+const PORT = process.env.PORT || 3006;
+const SERVICE_NAME = packageJson.name || "analytics-service";
 
 app.disable("x-powered-by");
 app.use(express.json());
@@ -44,13 +44,13 @@ app.listen(PORT, () => {
   console.log(`[${SERVICE_NAME}] swagger docs at http://localhost:${PORT}/api-docs`);
 });
 
-// Start consuming OrderPlaced events (no-op when KAFKA_BROKERS is unset).
-startOrderConsumer();
+// Start consuming user-events into the analytics log (no-op when KAFKA_BROKERS unset).
+startUserEventConsumer();
 
 // Disconnect cleanly on shutdown so the consumer group rebalances promptly.
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, async () => {
-    await stopOrderConsumer();
+    await stopUserEventConsumer();
     process.exit(0);
   });
 }

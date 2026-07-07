@@ -31,6 +31,9 @@ export const swaggerSpec = swaggerJSDoc(options);
 const AUTH_SERVICE_URL = normalizeBaseUrl(process.env.AUTH_SERVICE_URL || "http://localhost:3001");
 const PRODUCT_SERVICE_URL = normalizeBaseUrl(process.env.PRODUCT_SERVICE_URL || "http://localhost:3002");
 const ORDER_SERVICE_URL = normalizeBaseUrl(process.env.ORDER_SERVICE_URL || "http://localhost:3003");
+const PAYMENT_SERVICE_URL = normalizeBaseUrl(process.env.PAYMENT_SERVICE_URL || "http://localhost:3004");
+const NOTIFICATION_SERVICE_URL = normalizeBaseUrl(process.env.NOTIFICATION_SERVICE_URL || "http://localhost:3005");
+const ANALYTICS_SERVICE_URL = normalizeBaseUrl(process.env.ANALYTICS_SERVICE_URL || "http://localhost:3006");
 
 const DOWNSTREAM = [
   {
@@ -53,6 +56,27 @@ const DOWNSTREAM = [
     pathPrefix: "/api/orders",
     url: ORDER_SERVICE_URL,
     description: "Order management endpoints.",
+  },
+  {
+    tag: "Payment",
+    ns: "Payment_",
+    pathPrefix: "/api/payments",
+    url: PAYMENT_SERVICE_URL,
+    description: "Payment processing endpoints.",
+  },
+  {
+    tag: "Notification",
+    ns: "Notification_",
+    pathPrefix: "/api/notifications",
+    url: NOTIFICATION_SERVICE_URL,
+    description: "Notification endpoints.",
+  },
+  {
+    tag: "Analytics",
+    ns: "Analytics_",
+    pathPrefix: "/api/analytics",
+    url: ANALYTICS_SERVICE_URL,
+    description: "Analytics & reporting endpoints.",
   },
 ];
 

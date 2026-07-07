@@ -5,9 +5,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n gateway,auth,product,order -c cyan,green,yellow,magenta \"npm --prefix services/api-gateway run dev\" \"npm --prefix services/auth-service run dev\" \"npm --prefix services/product-service run dev\" \"npm --prefix services/order-service run dev\"",
-    "start": "concurrently -n gateway,auth,product,order -c cyan,green,yellow,magenta \"npm --prefix services/api-gateway start\" \"npm --prefix services/auth-service start\" \"npm --prefix services/product-service start\" \"npm --prefix services/order-service start\"",
-    "install:all": "npm install && npm --prefix services/api-gateway install && npm --prefix services/auth-service install && npm --prefix services/product-service install && npm --prefix services/order-service install"
+    "dev": "concurrently -n gateway,auth,product,order,payment,notification,analytics -c cyan,green,yellow,magenta,blue,red,white \"npm --prefix services/api-gateway run dev\" \"npm --prefix services/auth-service run dev\" \"npm --prefix services/product-service run dev\" \"npm --prefix services/order-service run dev\" \"npm --prefix services/payment-service run dev\" \"npm --prefix services/notification-service run dev\" \"npm --prefix services/analytics-service run dev\"",
+    "start": "concurrently -n gateway,auth,product,order,payment,notification,analytics -c cyan,green,yellow,magenta,blue,red,white \"npm --prefix services/api-gateway start\" \"npm --prefix services/auth-service start\" \"npm --prefix services/product-service start\" \"npm --prefix services/order-service start\" \"npm --prefix services/payment-service start\" \"npm --prefix services/notification-service start\" \"npm --prefix services/analytics-service start\"",
+    "install:all": "npm install && npm --prefix services/api-gateway install && npm --prefix services/auth-service install && npm --prefix services/product-service install && npm --prefix services/order-service install && npm --prefix services/payment-service install && npm --prefix services/notification-service install && npm --prefix services/analytics-service install"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
