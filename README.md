@@ -24,7 +24,7 @@ Through the gateway those become `GET /api/auth/health`, `GET /api/products/heal
 
 > Architecture deep-dive: [CLAUDE.md](CLAUDE.md) · Deploy details: [DEPLOYMENT.md](DEPLOYMENT.md)
 
-<img width="1905" height="1439" alt="image" src="https://github.com/user-attachments/assets/2dcd4105-4b99-48f1-9d3c-b5aa20cee3ce" />
+<img width="1905" height="2348" alt="image" src="https://github.com/user-attachments/assets/b74ca813-fee7-46fc-ad3a-1079b25037b0" />
 
 > **Try it live** — the full stack is deployed on Render:
 > [open the aggregated Swagger UI](https://api-gateway-22ik.onrender.com/api-docs)
